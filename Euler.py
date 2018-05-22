@@ -1,6 +1,32 @@
+import time
+import sys
 """ Project euler exercises solved with python scripts.
 	Exercise source: http://projecteuler.net"""
 
+
+## Accepts a float between 0 and 1. Any int will be converted to a float.
+## A value under 0 represents a 'halt'.
+## A value at 1 or bigger represents 100%
+def update_progress(progress):
+    barLength = 10 # Modify this to change the length of the progress bar
+    status = ""
+    if isinstance(progress, int):
+        progress = float(progress)
+    if not isinstance(progress, float):
+        progress = 0
+        status = "error: progress var must be float\r\n"
+    if progress < 0:
+        progress = 0
+        status = "Halt...\r\n"
+    if progress >= 1:
+        progress = 1
+        status = "Done...\r\n"
+    block = int(round(barLength*progress))
+    text = "\rPercent: [{0}] {1:.1f}% {2}".format( "#"*block + "-"*(barLength-block), progress*100, status)
+    sys.stdout.write(text)
+    sys.stdout.flush()
+
+    
 def problem1():
 	"""	If we list all the natural numbers below 10 that are multiples of 3 or 5, we get 3, 5, 6 and 9. 
 		The sum of these multiples is 23.
@@ -492,24 +518,18 @@ def problem19():
     And on leap years, twenty-nine.
     A leap year occurs on any year evenly divisible by 4, but not on a century unless it is divisible by 400.
     How many Sundays fell on the first of the month during the twentieth century (1 Jan 1901 to 31 Dec 2000)?"""
-    monthToDays = {'jan': (31, 31), 'feb':(28, 29), 'mar': (31, 31), 'apr': (30, 30), 'may': (31, 31), 'jun': (30, 30), 'jul': (31, 31), 'aug': (31, 31), 'sep': (30, 30), 'oct': (31, 31), 'nov': (30, 30), 'dec': (31, 31)}
-    
-    months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
-    
-    days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-    
-    startDate = (1, 1, 1900, 0)
-    dayindex, count = 0, list()
-    for year in range(1900, 2001):
-        isLeapYear = (year % 100 == 0 and year % 400 == 0) or (year % 100 > 0 and year % 4 == 0)
-        for month in months:
-            daysInMonth = monthToDays[month][1] if isLeapYear else monthToDays[month][0]
-            for date in range(1, daysInMonth+1):
-                if date==1 and dayindex==days.index('monday'):
-                    #count += 1
-                    count.append( (days[dayindex], date, month, year) )
-                dayindex = (dayindex+1) % 7
-    print('amount of mondays as first day of the month:', len(count))    
+     
+    monthToDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    dayindex, counter = 0, 0
+    for year in range(1900,2001):
+        isLeapYear = year % 400 == 0 or (year % 100 > 0 and year % 4 == 0)
+        for i in range(12):
+            if dayindex == 6 and year > 1900:
+                counter += 1
+            days = 29 if isLeapYear and i==1 else monthToDays[i]
+            dayindex = (dayindex+days)%7
+            
+    print('amount of sundays on the first of the month:', counter)
     
     
 def problem20():
@@ -529,21 +549,22 @@ def problem21():
     For example, the proper divisors of 220 are 1, 2, 4, 5, 10, 11, 20, 22, 44, 55 and 110; therefore d(220) = 284. The proper divisors of 284 are 1, 2, 4, 71 and 142; so d(284) = 220.
 
     Evaluate the sum of all the amicable numbers under 10000."""
-    d = {n: sum(getDivisors(n)) for n in range(2,10_000)}
+    d = {n: sum(getDivisors(n, False)) for n in range(2,10_000)}
     print("amicable pairs:")
     pairs = [(k,v) for (k,v) in d.items() if v>k and v in d and d[v]==k]
     print( sum( [k+v for (k,v) in pairs] ) )
     
     
-def getDivisors(number):
+def getDivisors(number, includeSelf=False):
     '''
     Returns a list of all the numbers that the input can be divided by without having a remainder.
     '''
     divisors = _getDivisors(factorise(number))
     # number itself is not a proper divisor
-    if not number in divisors:
-        print('number {} not in divisor list: {}'.format(number, divisors))
-    divisors.remove(number)
+#    if not number in divisors:
+#        print('number {} not in divisor list: {}'.format(number, divisors))
+    if not includeSelf:
+        divisors.remove(number)
 #    divisors.sort()
     return divisors
 
@@ -587,6 +608,25 @@ def problem23():
 
     Find the sum of all the positive integers which cannot be written as the sum of two abundant numbers."""
     
+    start = time.time()
+    abs, undivisibles = list(), list()
+    for x in range(2, 28123+1):
+        if x%100==0:
+            update_progress(x/28123)
+        if sum(getDivisors(x))>x: #this is an abundant number
+            isDivisible = False
+            for a in abs:
+                if x-a in abs:
+                    isDivisible = True
+                    break
+            if not isDivisible:
+                undivisibles.append(x)
+            abs.append(x)
+    update_progress(1)
+    
+    print('Time elapsed = {:2.1f} seconds'.format(time.time()-start))
+    print(sum(undivisibles))
+    
     
 def problem24():
     """ A permutation is an ordered arrangement of objects. For example, 3124 is one possible permutation of the digits 1, 2, 3 and 4. If all of the permutations are listed numerically or alphabetically, we call it lexicographic order. The lexicographic permutations of 0, 1 and 2 are:
@@ -594,6 +634,21 @@ def problem24():
         012   021   102   120   201   210
 
     What is the millionth lexicographic permutation of the digits 0, 1, 2, 3, 4, 5, 6, 7, 8 and 9?"""
+    
+    #calc first number: 
+    limit = 1_000_000
+    permutation, numbers = list(), list(range(10))
+    for i in range(9,-1,-1):
+        prod = product(range(1,i+1))
+        if limit==0 or prod==0:
+            fits = 0
+        else:
+            fits = (limit//prod)-1 if (limit % prod)==0 else limit//prod
+        print('Found new char {} ({}), limit = {}'.format(fits, numbers[fits], limit))
+        permutation.append(numbers.pop(fits))
+        limit = limit - fits*prod
+    
+    print('permutation =', ''.join(map(str, permutation)))
     
     
 def problem25():
@@ -654,4 +709,4 @@ def problem27():
     
     
 if __name__ == '__main__':
-    problem19()
+    problem24()
